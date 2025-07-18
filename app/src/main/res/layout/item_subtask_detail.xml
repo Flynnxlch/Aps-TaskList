@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="10dp"
+    app:cardElevation="2dp"
+    android:foreground="?attr/selectableItemBackground">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- Baris utama: checkbox + nama -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <CheckBox
+                android:id="@+id/cbSubtaskDone"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+            <TextView
+                android:id="@+id/tvSubtaskName"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Subtask Name"
+                android:textSize="16sp"/>
+        </LinearLayout>
+
+        <!-- Baris Due date + time-left -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/tvSubtaskDeadline"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="Due: 2025-07-20 14:00"
+                android:textSize="12sp"
+                android:textColor="#666"/>
+            <TextView
+                android:id="@+id/tvSubtaskTimeLeft"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="2 days left"
+                android:textSize="12sp"
+                android:textColor="@color/green"/>
+        </LinearLayout>
+
+        <!-- Finished by (hanya group, jika done by someone else) -->
+        <TextView
+            android:id="@+id/tvFinishedBy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Finished by: username"
+            android:textSize="12sp"
+            android:textColor="#666"
+            android:layout_marginTop="4dp"
+            android:visibility="gone"/>
+
+        <!-- Field komentar (muncul bila dicentang) -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/inputLayoutComment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Add comment"
+            android:layout_marginTop="8dp"
+            android:visibility="gone">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etSubtaskComment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine"
+                android:minLines="2"/>
+        </com.google.android.material.textfield.TextInputLayout>
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

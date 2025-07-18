@@ -1,0 +1,31 @@
+<resources>
+    <string name="app_name">APS-TaskList</string>
+    <string name="menu">Menu</string>
+    <string name="notifications">Notifications</string>
+    <string name="add_task">Add Task</string>
+    <string name="search_hint">Search for tasks, projects...</string>
+    <string name="banner_text">You have %1$d tasks today.</string>
+    <string name="title_text">Start Your Day\n&amp; Be Productive✌️</string>
+    <string name="section_today_tasks">Today Tasks</string>
+    <string name="see_all">See All &gt;</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_schedule">Schedule</string>
+    <string name="nav_calendar">Calendar</string>
+    <string name="nav_me">Me</string>
+    <string name="appbar_scrolling_view_behavior">
+        com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior
+    </string>
+    <!-- Deskripsi konten untuk ImageView splash -->
+    <string name="splash_image">Logo Aplikasi</string>
+
+    <!-- Jika kamu mau menampilkan teks di layar splash (opsional) -->
+    <string name="splash_info1">Selamat datang di Aplikasi XYZ</string>
+    <string name="splash_info2">Dingdong.</string>
+    <!-- ... -->
+    <string name="signup_prompt"> Dont have an account? <a href="signup"><font color="#FF5722">Sign up</font></a>
+        </string>
+    <string name="login_prompt"> Already have an account? <a href="login"><font color="#FF5722">Log in</font></a>
+        </string>
+
+
+</resources>

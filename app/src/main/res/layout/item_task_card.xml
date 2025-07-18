@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:card_view="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    card_view:cardCornerRadius="12dp"
+    card_view:cardElevation="4dp"
+    android:layout_marginBottom="12dp"
+    android:foreground="?attr/selectableItemBackground">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- Title & overflow menu -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tvTaskTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Delivery App UI Kit"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/black" />
+
+            <ImageView
+                android:id="@+id/ivTaskMenu"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_more_vert"
+                android:contentDescription="More" />
+        </LinearLayout>
+
+        <!-- Description -->
+        <TextView
+            android:id="@+id/tvTaskDesc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="We got a project to make..."
+            android:textSize="14sp"
+            android:textColor="#666"
+            android:layout_marginTop="4dp"/>
+
+        <!-- Avatars group + count -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <!-- contoh overlay 3 avatar bulat -->
+            <ImageView
+                android:id="@+id/ivAvatar1"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_avatar_placeholder"
+                android:layout_marginEnd="-8dp"
+                android:background="@drawable/circle_white_border"/>
+            <ImageView
+                android:id="@+id/ivAvatar2"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_avatar_placeholder"
+                android:layout_marginEnd="-8dp"
+                android:background="@drawable/circle_white_border"/>
+                <ImageView
+                    android:id="@+id/ivAvatar3"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_avatar_placeholder"
+                    android:background="@drawable/circle_white_border"/>
+
+            <TextView
+                android:id="@+id/tvAvatarMore"
+                android:layout_width="wrap_content"
+                android:layout_height="24dp"
+                android:layout_marginStart="4dp"
+                android:gravity="center"
+                android:padding="4dp"
+                android:text="+0"
+                android:textSize="12sp"
+                android:textColor="@android:color/black"
+                android:background="@drawable/circle_white_border"
+                android:visibility="gone"/>
+
+        </LinearLayout>
+
+        <!-- Progress bar -->
+        <ProgressBar
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:id="@+id/pbTaskProgress"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:progress="65"
+            android:layout_marginTop="12dp"
+            android:progressTint="@color/green"
+            android:indeterminateOnly="false"/>
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

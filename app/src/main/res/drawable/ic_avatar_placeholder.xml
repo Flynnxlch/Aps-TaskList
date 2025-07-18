@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Lingkaran dasar -->
+    <path
+        android:fillColor="#DDDDDD"
+        android:pathData="M12,2
+                          A10,10 0 1,0 22,12
+                          A10,10 0 0,0 12,2z"/>
+
+    <!-- Kepala (radius 4, dipindah ke y=4..12) -->
+    <path
+        android:fillColor="#888888"
+        android:pathData="M12,4
+                          a4,4 0 1,0 0,8
+                          a4,4 0 0,0 0,-8z"/>
+
+    <!-- Badan & bahu (lebih sempit dan pendek) -->
+    <path
+        android:fillColor="#888888"
+        android:pathData="M6,14
+                          c0,-2.5 6,-4 6,-4
+                          s6,1.5 6,4
+                          v4
+                          h-12
+                          z"/>
+</vector>

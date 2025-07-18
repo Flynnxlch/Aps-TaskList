@@ -1,0 +1,205 @@
+package com.project.aps_tasklist.activity
+
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import android.content.Intent
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.textfield.TextInputEditText
+import com.project.aps_tasklist.R
+import com.project.aps_tasklist.model.TaskModel
+import java.text.SimpleDateFormat
+import java.util.*
+
+class AddTaskActivity : AppCompatActivity() {
+
+    // util: generate random 8-digit alfanumerik untuk Group ID
+    private fun randomGroupId(length: Int = 8): String {
+        val chars = ('A'..'Z') + ('0'..'9')
+        return (1..length)
+            .map { chars.random() }
+            .joinToString("")
+    }
+
+    private lateinit var rgTaskType: RadioGroup
+    private lateinit var etTaskID: TextInputEditText
+    private lateinit var taskIdLayout: View
+    private lateinit var btnAddSubtask: View
+    private lateinit var subtaskContainer: LinearLayout
+    private lateinit var etDeadlineDate: TextInputEditText
+    private lateinit var etDeadlineTime: TextInputEditText
+    private lateinit var btnSaveTask: MaterialButton
+
+    private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private val calendar = Calendar.getInstance()
+    private var selectedDeadlineMillis: Long = 0L
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_add_task)
+
+        // Bind views
+        rgTaskType       = findViewById(R.id.rgTaskType)
+        etTaskID         = findViewById(R.id.etTaskID)
+        taskIdLayout     = findViewById(R.id.inputLayoutTaskID)
+        btnAddSubtask    = findViewById(R.id.btnAddSubtask)
+        subtaskContainer = findViewById(R.id.subtaskContainer)
+        etDeadlineDate   = findViewById(R.id.etDeadlineDate)
+        etDeadlineTime   = findViewById(R.id.etDeadlineTime)
+        btnSaveTask      = findViewById(R.id.btnSaveTask)
+
+        // Toggle Task Type: Individual vs Group
+        rgTaskType.setOnCheckedChangeListener { _, checkedId ->
+            val isGroup = (checkedId == R.id.rbGroup)
+            taskIdLayout.visibility = if (isGroup) View.VISIBLE else View.GONE
+
+            if (isGroup) {
+                etTaskID.setText(randomGroupId())  // <-- generate 8-digit ID here
+            } else {
+                etTaskID.setText("")
+            }
+            updateAssignSwitchVisibility()
+        }
+
+        // Deadline date picker
+        etDeadlineDate.setOnClickListener {
+            showDatePickerDialog { year, month, day ->
+                calendar.set(year, month, day)
+                etDeadlineDate.setText(dateFormat.format(calendar.time))
+                savePartialDeadline()
+            }
+        }
+        // Deadline time picker
+        etDeadlineTime.setOnClickListener {
+            showTimePickerDialog { hour, minute ->
+                calendar.set(Calendar.HOUR_OF_DAY, hour)
+                calendar.set(Calendar.MINUTE, minute)
+                etDeadlineTime.setText(timeFormat.format(calendar.time))
+                savePartialDeadline()
+            }
+        }
+
+        // Add Subtask
+        btnAddSubtask.setOnClickListener { addSubtaskView() }
+
+        // Save Task button
+        btnSaveTask.setOnClickListener { saveAndReturn() }
+    }
+
+    private fun savePartialDeadline() {
+        selectedDeadlineMillis = calendar.timeInMillis
+    }
+
+    private fun saveAndReturn() {
+        val title = findViewById<TextInputEditText>(R.id.etTaskTitle)
+            .text.toString().trim()
+        val desc  = findViewById<TextInputEditText>(R.id.etTaskDesc)
+            .text.toString().trim()
+        val usercount = 1 // atau ambil sesuai UI assign user
+        val progress = 0
+
+        val now = System.currentTimeMillis()
+        // Validasi input
+        if (title.isEmpty()) {
+            Toast.makeText(this, "Masukkan judul tugas", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (selectedDeadlineMillis <= now) {
+            Toast.makeText(this, "Pilih deadline setelah saat ini", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Buat TaskModel dengan tiga timestamp
+        val task = TaskModel(
+            title                = title,
+            description          = desc,
+            usercount            = usercount,
+            progress             = progress,
+            lastInteractedMillis = now,
+            createdMillis        = now,
+            deadlineMillis       = selectedDeadlineMillis
+        )
+
+        // Kembalikan ke MainActivity dengan Intent
+        val data = Intent().apply {
+            putExtra("newTask", task)
+        }
+        setResult(RESULT_OK, data)
+        finish()
+    }
+
+    private fun addSubtaskView() {
+        val inflater = LayoutInflater.from(this)
+        val subtaskView = inflater.inflate(R.layout.layout_subtask, subtaskContainer, false)
+
+        val etSubtaskDate = subtaskView.findViewById<TextInputEditText>(R.id.etSubtaskDate)
+        val etSubtaskTime = subtaskView.findViewById<TextInputEditText>(R.id.etSubtaskTime)
+        val switchReminder = subtaskView.findViewById<Switch>(R.id.switchReminder)
+        val reminderOptions = subtaskView.findViewById<View>(R.id.reminderOptionsContainer)
+        val assignContainer = subtaskView.findViewById<View>(R.id.assignContainer)
+        val deleteBtn = subtaskView.findViewById<ImageView>(R.id.btnDeleteSubtask)
+
+        // Assign to me hanya untuk Group
+        assignContainer.visibility =
+            if (rgTaskType.checkedRadioButtonId == R.id.rbGroup) View.VISIBLE else View.GONE
+
+        // Subtask date/time pickers
+        etSubtaskDate.setOnClickListener { showDatePickerDialog { y, m, d ->
+            calendar.set(y, m, d)
+            etSubtaskDate.setText(dateFormat.format(calendar.time))
+        } }
+        etSubtaskTime.setOnClickListener { showTimePickerDialog { h, mi ->
+            calendar.set(Calendar.HOUR_OF_DAY, h)
+            calendar.set(Calendar.MINUTE, mi)
+            etSubtaskTime.setText(timeFormat.format(calendar.time))
+        } }
+
+        // Toggle reminder options
+        switchReminder.setOnCheckedChangeListener { _, isChecked ->
+            reminderOptions.visibility = if (isChecked) View.VISIBLE else View.GONE
+        }
+
+        // Delete subtask row
+        deleteBtn.setOnClickListener {
+            subtaskContainer.removeView(subtaskView)
+        }
+
+        subtaskContainer.addView(subtaskView)
+    }
+
+    private fun updateAssignSwitchVisibility() {
+        for (i in 0 until subtaskContainer.childCount) {
+            val subtaskView = subtaskContainer.getChildAt(i)
+            val assignContainer = subtaskView.findViewById<View>(R.id.assignContainer)
+            assignContainer.visibility =
+                if (rgTaskType.checkedRadioButtonId == R.id.rbGroup) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun showDatePickerDialog(onDateSet: (year: Int, month: Int, day: Int) -> Unit) {
+        val c = Calendar.getInstance()
+        DatePickerDialog(
+            this,
+            { _, year, month, dayOfMonth -> onDateSet(year, month, dayOfMonth) },
+            c.get(Calendar.YEAR),
+            c.get(Calendar.MONTH),
+            c.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    private fun showTimePickerDialog(onTimeSet: (hour: Int, minute: Int) -> Unit) {
+        val c = Calendar.getInstance()
+        TimePickerDialog(
+            this,
+            { _, hour, minute -> onTimeSet(hour, minute) },
+            c.get(Calendar.HOUR_OF_DAY),
+            c.get(Calendar.MINUTE),
+            true
+        ).show()
+    }
+}

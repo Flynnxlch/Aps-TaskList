@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/scrollDetail"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- Toolbar dengan back arrow dan judul -->
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbarDetail"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:navigationIcon="@drawable/ic_arrow_back"
+            app:title="Task Detail"
+            app:titleTextColor="@android:color/white"
+            android:background="?attr/colorPrimary" />
+
+        <!-- Progress utama -->
+        <TextView
+            android:id="@+id/tvOverallProgressLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Overall Progress"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"/>
+        <ProgressBar
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:id="@+id/pbOverallProgress"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:layout_marginTop="4dp"
+            android:progressTint="@color/green"/>
+
+        <!-- Progress subtasks (hanya untuk task group) -->
+        <TextView
+            android:id="@+id/tvSubtasksProgressLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Subtasks Progress"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"
+            android:visibility="gone"/>
+        <ProgressBar
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:id="@+id/pbSubtasksProgress"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:layout_marginTop="4dp"
+            android:progressTint="@color/green"
+            android:visibility="gone"/>
+
+        <!-- Judul & deskripsi -->
+        <TextView
+            android:id="@+id/tvDetailTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Task Title"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"/>
+
+        <TextView
+            android:id="@+id/tvDetailDesc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Full description goes here…"
+            android:layout_marginTop="8dp"/>
+
+        <!-- Deadline -->
+        <TextView
+            android:id="@+id/tvDetailDeadlineLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Deadline:"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp"/>
+        <TextView
+            android:id="@+id/tvDetailDeadline"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="2025-07-20 14:00"
+            android:textColor="#666"
+            android:layout_marginTop="4dp"/>
+
+        <!-- Members (group task only) -->
+        <TextView
+            android:id="@+id/tvMembersLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Members"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"
+            android:visibility="gone"/>
+        <LinearLayout
+            android:id="@+id/memberContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="4dp"
+            android:visibility="gone">
+            <!-- Contoh entry:
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="• username1"
+                android:paddingVertical="2dp"/>
+            -->
+        </LinearLayout>
+
+        <!-- Daftar Subtasks -->
+        <TextView
+            android:id="@+id/tvSubtaskHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Subtasks"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"/>
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvDetailSubtasks"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false"/>
+
+        <!-- Button mark complete atau update -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnMarkComplete"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Mark as Complete"
+            android:layout_marginTop="24dp"/>
+
+    </LinearLayout>
+</ScrollView>

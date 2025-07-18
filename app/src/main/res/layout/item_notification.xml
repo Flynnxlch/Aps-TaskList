@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:card_view="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    card_view:cardCornerRadius="8dp"
+    card_view:cardElevation="2dp"
+    android:layout_marginBottom="12dp"
+    android:foreground="?attr/selectableItemBackground">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="12dp">
+
+        <!-- indikator warna di sisi kiri -->
+        <View
+            android:id="@+id/viewIndicator"
+            android:layout_width="4dp"
+            android:layout_height="match_parent"
+            android:layout_alignParentStart="true"
+            android:background="@color/colorAccent" />
+
+        <!-- Judul notifikasi -->
+        <TextView
+            android:id="@+id/tvNotifTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toEndOf="@id/viewIndicator"
+            android:layout_marginStart="8dp"
+            android:text="Movie Release"
+            android:textStyle="bold"
+            android:textSize="16sp"/>
+
+        <!-- Timestamp -->
+        <TextView
+            android:id="@+id/tvNotifTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignBaseline="@id/tvNotifTitle"
+            android:layout_alignParentEnd="true"
+            android:text="09:23"
+            android:textSize="12sp"
+            android:textColor="#666"/>
+
+        <!-- Deskripsi -->
+        <TextView
+            android:id="@+id/tvNotifDesc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/tvNotifTitle"
+            android:layout_toEndOf="@id/viewIndicator"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="4dp"
+            android:text="John Wick 4 is coming soon!"
+            android:textSize="14sp"
+            android:textColor="#444"/>
+    </RelativeLayout>
+</androidx.cardview.widget.CardView>

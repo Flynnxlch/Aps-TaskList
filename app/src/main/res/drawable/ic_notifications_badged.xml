@@ -1,0 +1,11 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Bell icon -->
+    <item android:drawable="@drawable/ic_notifications" />
+
+    <!-- Red dot -->
+    <item
+        android:drawable="@drawable/bg_badge_dot"
+        android:width="10dp"
+        android:height="10dp"
+        android:gravity="top|end" />
+</layer-list>

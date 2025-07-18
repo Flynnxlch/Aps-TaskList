@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+        <!-- Primary toolbar: vibrant coral -->
+        <color name="colorPrimary">#FF6F61</color>
+        <color name="colorPrimaryVariant">#E65B50</color>
+        <color name="colorOnPrimary">#FFFFFF</color>
+
+        <!-- Secondary/buttons: energetic teal -->
+        <color name="colorSecondary">#42B8C4</color>
+        <color name="colorSecondaryVariant">#369AA0</color>
+        <color name="colorOnSecondary">#FFFFFF</color>
+
+        <!-- Surface / Cards / Background -->
+        <color name="colorSurface">#FFFFFF</color>
+        <color name="colorOnSurface">#212121</color>
+
+        <!-- Error / Warning (optional) -->
+        <color name="colorError">#D32F2F</color>
+        <color name="colorOnError">#FFFFFF</color>
+
+        <color name="green">#4CAF50</color>
+        <color name="blue">#2196F3</color>
+
+
+    <color name="pill_orange">#33FFB74D</color>   <!-- 30% orange -->
+    <color name="pill_blue">  #334FC3F7</color>   <!-- 30% blue -->
+    <color name="pill_pink">  #33E91E63</color>   <!-- 30% pink -->
+    <color name="pill_teal">#3367FF08</color>   <!-- 30% teal -->
+    <color name="pill_purple">#334E33E0</color>   <!-- 30% purple -->
+
+    <array name="pill_colors">
+        <item>@color/pill_orange</item>
+        <item>@color/pill_blue</item>
+        <item>@color/pill_pink</item>
+        <item>@color/pill_teal</item>
+        <item>@color/pill_purple</item>
+    </array>
+
+
+    <!-- Warna utama aplikasi -->
+
+    <color name="colorAccent">#FF4081</color>
+
+    <!-- Warna untuk BottomNav -->
+    <color name="nav_item_checked">#6200EE</color>   <!-- sama dengan purple_500 -->
+    <color name="nav_item_unchecked">#808080</color> <!-- abu-abu -->
+
+    <!-- Warna latar / background -->
+    <color name="gray_light">#F5F5F5</color>
+    <color name="gray">#808080</color>
+
+    <!-- Warna teks umum -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+</resources>
