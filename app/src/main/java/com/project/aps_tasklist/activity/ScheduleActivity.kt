@@ -1,9 +1,12 @@
 package com.project.aps_tasklist.activity
 
+import android.content.Intent
 import android.os.Bundle
+import android.view.MenuItem
 import android.view.View
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -15,17 +18,20 @@ import com.prolificinteractive.materialcalendarview.MaterialCalendarView
 import com.project.aps_tasklist.R
 import com.project.aps_tasklist.adapter.TaskAdapter
 import com.project.aps_tasklist.model.TaskModel
+import com.project.aps_tasklist.activity.DetailActivity
 import java.util.*
 
 class ScheduleActivity : AppCompatActivity(),
-    TaskAdapter.TaskActionListener {
+    TaskAdapter.TaskActionListener              // ← implement listener
 
+{
+    private lateinit var toolbar: Toolbar
     private lateinit var calendarView: MaterialCalendarView
     private lateinit var rvScheduleEvents: RecyclerView
     private lateinit var placeholderNoEvents: View
     private lateinit var scheduleAdapter: TaskAdapter
 
-    // Dummy data; nanti ganti dengan data nyata
+    // Dummy data; nantinya ganti dengan data nyata
     private val tasksData = listOf(
         TaskModel("Task A", "Desc A", 2, 50, nowOffset(0), nowOffset(0), nowOffset(3)),
         TaskModel("Task B", "Desc B", 1, 80, nowOffset(-2), nowOffset(-2), nowOffset(3)),
@@ -36,6 +42,12 @@ class ScheduleActivity : AppCompatActivity(),
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_schedule)
+
+        toolbar = findViewById(R.id.toolbarSchedule)
+        setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        toolbar.setNavigationOnClickListener { finish() }
+
 
         // Edge-to-edge padding
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.scheduleLayout)) { v, insets ->
@@ -51,7 +63,7 @@ class ScheduleActivity : AppCompatActivity(),
 
         // Setup RecyclerView
         rvScheduleEvents.layoutManager = LinearLayoutManager(this)
-        scheduleAdapter = TaskAdapter(emptyList(), this)
+        scheduleAdapter = TaskAdapter(emptyList(), this)  // ← pass 'this' listener
         rvScheduleEvents.adapter = scheduleAdapter
 
         // Highlight rentang tanggal tiap task
@@ -66,17 +78,19 @@ class ScheduleActivity : AppCompatActivity(),
     }
 
     private fun showTasksForDate(date: CalendarDay) {
+        val dayMillis = date.date.time
         // Filter hanya unfinished tasks dan tanggal terpilih di antara created..deadline
         val filtered = tasksData.filter { t ->
             t.progress < 100 &&
-                    date.date.time in t.createdMillis..t.deadlineMillis
+                    dayMillis in t.createdMillis..t.deadlineMillis
         }
+
         if (filtered.isEmpty()) {
             placeholderNoEvents.visibility = View.VISIBLE
-            rvScheduleEvents.visibility = View.GONE
+            rvScheduleEvents.visibility  = View.GONE
         } else {
             placeholderNoEvents.visibility = View.GONE
-            rvScheduleEvents.visibility = View.VISIBLE
+            rvScheduleEvents.visibility   = View.VISIBLE
             scheduleAdapter.updateData(filtered)
         }
     }
@@ -91,12 +105,10 @@ class ScheduleActivity : AppCompatActivity(),
         tasksData.forEachIndexed { idx, t ->
             val color = palette[idx % palette.size]
 
-            // Mutate + tint generik pill drawables
             val dLeft  = getDrawable(R.drawable.pill_left)!!.mutate().apply { setTint(color) }
             val dMid   = getDrawable(R.drawable.pill_middle)!!.mutate().apply { setTint(color) }
             val dRight = getDrawable(R.drawable.pill_right)!!.mutate().apply { setTint(color) }
 
-            // Loop setiap tanggal dari createdMillis..deadlineMillis
             var cal = Calendar.getInstance().apply { timeInMillis = t.createdMillis }
             while (cal.timeInMillis <= t.deadlineMillis) {
                 val day = CalendarDay.from(cal)
@@ -105,10 +117,8 @@ class ScheduleActivity : AppCompatActivity(),
                     t.deadlineMillis -> dRight
                     else              -> dMid
                 }
-                // Tambahkan satu decorator untuk tanggal ini
                 calendarView.addDecorator(object: DayViewDecorator {
-                    override fun shouldDecorate(d: CalendarDay): Boolean =
-                        d == day
+                    override fun shouldDecorate(d: CalendarDay) = d == day
                     override fun decorate(view: DayViewFacade) {
                         view.setSelectionDrawable(decorDrawable)
                     }
@@ -118,12 +128,22 @@ class ScheduleActivity : AppCompatActivity(),
         }
     }
 
-    // TaskAdapter callbacks (boleh disesuaikan)
+    // === TaskAdapter.TaskActionListener implementation ===
+
     override fun onTaskClicked(task: TaskModel, position: Int) {
-        // Contoh: buka DetailActivity
+        // Buka DetailActivity, kirim data
+        startActivity(Intent(this, DetailActivity::class.java).apply {
+            putExtra("task", task)
+            putExtra("pos", position)
+            putExtra("isGroupTask", task.usercount > 1)
+        })
     }
-    override fun onEdit(task: TaskModel, position: Int) { /* ... */ }
-    override fun onDelete(task: TaskModel, position: Int) { /* ... */ }
+
+    override fun onEdit(task: TaskModel, position: Int) {
+    }
+
+    override fun onDelete(task: TaskModel, position: Int) {
+    }
 
     companion object {
         private fun nowOffset(daysAgo: Int): Long {

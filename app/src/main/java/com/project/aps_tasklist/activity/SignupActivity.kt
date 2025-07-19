@@ -13,6 +13,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.firestore.FirebaseFirestore
 import com.project.aps_tasklist.R
 
 class SignupActivity : AppCompatActivity() {
@@ -22,6 +26,8 @@ class SignupActivity : AppCompatActivity() {
     private lateinit var signupPasswordEditText: EditText
     private lateinit var signupConfirmPasswordEditText: EditText
     private lateinit var signupButton: Button
+    private lateinit var auth: FirebaseAuth
+    private lateinit var rtDb: DatabaseReference
 
     private var isPasswordVisible = false
 
@@ -30,6 +36,9 @@ class SignupActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_signup)
+
+        auth = FirebaseAuth.getInstance()
+        rtDb = FirebaseDatabase.getInstance().reference
 
         signupUsernameEditText = findViewById(R.id.signupUsernameEditText)
         signupEmailEditText = findViewById(R.id.signupEmailEditText)
@@ -48,57 +57,65 @@ class SignupActivity : AppCompatActivity() {
         loginPrompt.setOnClickListener {
             startActivity(Intent(this, LoginActivity::class.java))
         }
-        //toggle password visibility
-        signupPasswordEditText.setOnTouchListener { v, event ->
-            if (event.action == MotionEvent.ACTION_UP) {
-                val edit = v as EditText
-                val drawableEnd = edit.compoundDrawablesRelative[2]
-                if (drawableEnd != null) {
-                    val touchAreaStart = edit.width - edit.paddingEnd - drawableEnd.intrinsicWidth
-                    if (event.x >= touchAreaStart) {
+
+        signupButton.setOnClickListener {
+            val username = signupUsernameEditText.text.toString().trim()
+            val email = signupEmailEditText.text.toString().trim()
+            val pass = signupPasswordEditText.text.toString()
+            val cpass = signupConfirmPasswordEditText.text.toString()
+
+
+            if (username.isEmpty() || email.isEmpty() || pass.isEmpty() || cpass.isEmpty()) {
+                if (username.isEmpty()) signupUsernameEditText.error = "Username wajib diisi"
+                if (email   .isEmpty()) signupEmailEditText.error = "Email wajib diisi"
+                if (pass    .isEmpty()) signupPasswordEditText.error = "Password wajib diisi"
+                if (cpass .isEmpty()) signupConfirmPasswordEditText.error = "Konfirmasi wajib diisi"
+                return@setOnClickListener
+        }
+            val pwdrgx = Regex("^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{8,}$")
+            if (!pwdrgx.matches(pass)) {
+                signupPasswordEditText.error = "Minimal 8 karakter, harus huruf & angka"
+                return@setOnClickListener
+            }
+            if (pass != cpass){
+                signupConfirmPasswordEditText.error = "Konfirmasi password tidak cocok"
+                return@setOnClickListener
+            }
+
+            auth.createUserWithEmailAndPassword(email, pass)
+                .addOnSuccessListener { res ->
+                val uid = res.user!!.uid
+                val userMap = mapOf("username" to username, "email" to email)
+                rtDb.child("users").child(uid).setValue(userMap)
+                rtDb.child("usernames").child(username).setValue(uid)
+                // Langsung masuk MainActivity
+                startActivity(Intent(this, MainActivity::class.java))
+                finish()
+            }
+                .addOnFailureListener { ex ->
+                    Toast.makeText(this, ex.message, Toast.LENGTH_LONG).show()
+                }
+        }
+
+
+        listOf(signupPasswordEditText, signupConfirmPasswordEditText).forEach { edit ->
+            edit.setOnTouchListener { v, ev ->
+                if (ev.action == MotionEvent.ACTION_UP) {
+                    val dEnd = edit.compoundDrawablesRelative[2] ?: return@setOnTouchListener false
+                    val startX = edit.width - edit.paddingEnd - dEnd.intrinsicWidth
+                    if (ev.x >= startX) {
+                        v.performClick()  // accesibility
                         isPasswordVisible = !isPasswordVisible
-                        edit.transformationMethod = if (isPasswordVisible) {
+                        edit.transformationMethod = if (isPasswordVisible)
                             HideReturnsTransformationMethod.getInstance()
-                        } else {
+                        else
                             PasswordTransformationMethod.getInstance()
-                        }
                         edit.setSelection(edit.text.length)
                         return@setOnTouchListener true
                     }
                 }
-            }
-            false
-        }
-    }
-
-    private fun validateInputs(): Boolean {
-        val username = signupUsernameEditText.text.toString().trim()
-        val email    = signupEmailEditText.text.toString().trim()
-        val pass     = signupPasswordEditText.text.toString()
-        val confirm  = signupConfirmPasswordEditText.text.toString()
-
-        return when {
-            username.isEmpty() -> {
-                Toast.makeText(this, "Username tidak boleh kosong", Toast.LENGTH_SHORT).show()
                 false
             }
-            email.isEmpty() -> {
-                Toast.makeText(this, "Email tidak boleh kosong", Toast.LENGTH_SHORT).show()
-                false
-            }
-            pass.isEmpty() -> {
-                Toast.makeText(this, "Password tidak boleh kosong", Toast.LENGTH_SHORT).show()
-                false
-            }
-            confirm.isEmpty() -> {
-                Toast.makeText(this, "Konfirmasi password tidak boleh kosong", Toast.LENGTH_SHORT).show()
-                false
-            }
-            pass != confirm -> {
-                Toast.makeText(this, "Password dan konfirmasi tidak cocok", Toast.LENGTH_SHORT).show()
-                false
-            }
-            else -> true
         }
     }
 }

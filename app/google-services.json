@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "511555448049",
+    "project_id": "aps-tasklist",
+    "storage_bucket": "aps-tasklist.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:511555448049:android:c58c15175c876a2b3ecd50",
+        "android_client_info": {
+          "package_name": "com.project.aps_tasklist"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA121TBz3goedm8jfC0woeSrRkYmQMqiJQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
