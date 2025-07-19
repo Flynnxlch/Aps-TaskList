@@ -14,6 +14,11 @@ import com.project.aps_tasklist.R
 import com.project.aps_tasklist.model.TaskModel
 import java.text.SimpleDateFormat
 import java.util.*
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.Timestamp
+import android.content.ContentValues
+import android.provider.CalendarContract
+import com.google.firebase.auth.FirebaseAuth
 
 class AddTaskActivity : AppCompatActivity() {
 
@@ -34,10 +39,13 @@ class AddTaskActivity : AppCompatActivity() {
     private lateinit var etDeadlineTime: TextInputEditText
     private lateinit var btnSaveTask: MaterialButton
 
+
     private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     private val calendar = Calendar.getInstance()
     private var selectedDeadlineMillis: Long = 0L
+    private val firestore = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -96,47 +104,120 @@ class AddTaskActivity : AppCompatActivity() {
     }
 
     private fun saveAndReturn() {
-        val title = findViewById<TextInputEditText>(R.id.etTaskTitle)
-            .text.toString().trim()
-        val desc  = findViewById<TextInputEditText>(R.id.etTaskDesc)
-            .text.toString().trim()
-        val usercount = 1 // atau ambil sesuai UI assign user
-        val progress = 0
+        // 1. Ambil input dasar
+        val title    = findViewById<TextInputEditText>(R.id.etTaskTitle).text.toString().trim()
+        val desc     = findViewById<TextInputEditText>(R.id.etTaskDesc).text.toString().trim()
+        val isGroup  = rgTaskType.checkedRadioButtonId == R.id.rbGroup
+        val groupId  = if (isGroup) etTaskID.text.toString() else null
+        val uid      = auth.currentUser?.uid ?: return
+        val nowTs    = Timestamp.now()
+        val nowMs    = nowTs.toDate().time
 
-        val now = System.currentTimeMillis()
-        // Validasi input
+        // 2. Validasi
         if (title.isEmpty()) {
             Toast.makeText(this, "Masukkan judul tugas", Toast.LENGTH_SHORT).show()
             return
         }
-        if (selectedDeadlineMillis <= now) {
+        if (selectedDeadlineMillis <= nowMs) {
             Toast.makeText(this, "Pilih deadline setelah saat ini", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Buat TaskModel dengan tiga timestamp
-        val task = TaskModel(
-            title                = title,
-            description          = desc,
-            usercount            = usercount,
-            progress             = progress,
-            lastInteractedMillis = now,
-            createdMillis        = now,
-            deadlineMillis       = selectedDeadlineMillis
+        // 3. Siapkan parent data
+        val parentData = hashMapOf(
+            "title"           to title,
+            "description"     to desc,
+            "type"            to if (isGroup) "group" else "individual",
+            "groupId"         to groupId,
+            "deadlineMillis"  to selectedDeadlineMillis,
+            "createdBy"       to uid,
+            "createdAt"       to nowTs,
+            "lastInteracted"  to nowTs
         )
 
-        // Kembalikan ke MainActivity dengan Intent
-        val data = Intent().apply {
-            putExtra("newTask", task)
-        }
-        setResult(RESULT_OK, data)
-        finish()
+        // 4. Simpan parent ke Firestore (otomatis bikin koleksi & doc baru)
+        firestore.collection("tasks")
+            .add(parentData)
+            .addOnSuccessListener { taskDoc ->
+
+                val taskId = taskDoc.id
+
+                // 5. Simpan setiap subtask
+                for (i in 0 until subtaskContainer.childCount) {
+                    val view         = subtaskContainer.getChildAt(i)
+                    val nameField    = view.findViewById<EditText>(R.id.etSubtaskName)
+                    val dateField    = view.findViewById<EditText>(R.id.etSubtaskDate)
+                    val timeField    = view.findViewById<EditText>(R.id.etSubtaskTime)
+                    val switchRem    = view.findViewById<Switch>(R.id.switchReminder)
+                    val hoursRem     = view.findViewById<EditText>(R.id.etReminderHours).text.toString()
+                    val minsRem      = view.findViewById<EditText>(R.id.etReminderMinutes).text.toString()
+                    val assignMe     = view.findViewById<Switch>(R.id.switchAssignToMe).isChecked
+
+                    // parse subtask deadline
+                    val subCal = Calendar.getInstance().apply {
+                        time = dateFormat.parse(dateField.text.toString()) ?: Date()
+                        set(Calendar.HOUR_OF_DAY,
+                            timeFormat.parse(timeField.text.toString())?.hours ?: 0)
+                        set(Calendar.MINUTE,
+                            timeFormat.parse(timeField.text.toString())?.minutes ?: 0)
+                    }
+                    val subDeadline = subCal.timeInMillis
+
+                    // reminder offset
+                    val offsetMs = if (switchRem.isChecked) {
+                        (hoursRem.toLongOrNull() ?: 0L)*3_600_000 +
+                                (minsRem .toLongOrNull() ?: 0L)*   60_000
+                    } else 0L
+
+                    val subData = hashMapOf(
+                        "name"             to nameField.text.toString().trim(),
+                        "deadlineMillis"   to subDeadline,
+                        "hasReminder"      to switchRem.isChecked,
+                        "reminderOffsetMs" to offsetMs,
+                        "assignToMe"       to assignMe,
+                        "isDone"           to false
+                    )
+                    firestore.collection("tasks")
+                        .document(taskId)
+                        .collection("subtasks")
+                        .add(subData)
+                }
+
+                // 6. Jika group: tambahkan task ke group dan anggota
+                if (isGroup && groupId != null) {
+                    firestore.collection("groups")
+                        .document(groupId)
+                        .update("members", com.google.firebase.firestore.FieldValue.arrayUnion(uid))
+                        .addOnSuccessListener {
+                            firestore.collection("groups")
+                                .document(groupId)
+                                .collection("tasks")
+                                .document(taskId)
+                                .set(parentData)
+                        }
+                }
+
+                // 7. Simpan ke kalender sistem
+                startActivity(Intent(Intent.ACTION_INSERT).apply {
+                    data = CalendarContract.Events.CONTENT_URI
+                    putExtra(CalendarContract.Events.TITLE, title)
+                    putExtra(CalendarContract.Events.DESCRIPTION, desc)
+                    putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, selectedDeadlineMillis)
+                    putExtra(CalendarContract.EXTRA_EVENT_END_TIME, selectedDeadlineMillis + 3_600_000)
+                })
+
+                // 8. Kembali ke MainActivity tanpa mengganggu fungsi lain
+                setResult(RESULT_OK)
+                finish()
+            }
+            .addOnFailureListener { ex ->
+                Toast.makeText(this, ex.message, Toast.LENGTH_LONG).show()
+            }
     }
 
     private fun addSubtaskView() {
         val inflater = LayoutInflater.from(this)
         val subtaskView = inflater.inflate(R.layout.layout_subtask, subtaskContainer, false)
-
         val etSubtaskDate = subtaskView.findViewById<TextInputEditText>(R.id.etSubtaskDate)
         val etSubtaskTime = subtaskView.findViewById<TextInputEditText>(R.id.etSubtaskTime)
         val switchReminder = subtaskView.findViewById<Switch>(R.id.switchReminder)

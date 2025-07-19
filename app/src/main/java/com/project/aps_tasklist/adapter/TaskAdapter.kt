@@ -1,5 +1,6 @@
 package com.project.aps_tasklist.adapter
 
+import android.provider.CalendarContract
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -8,6 +9,7 @@ import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.google.firebase.firestore.FirebaseFirestore
 import com.project.aps_tasklist.R
 import com.project.aps_tasklist.model.TaskModel
 
@@ -40,19 +42,21 @@ class TaskAdapter(
             // Avatars placeholder + "+N"
             val count = task.usercount
             val avatars = listOf(avatar1, avatar2, avatar3)
-            avatars.forEachIndexed { i, iv ->
-                if (i < count && i < 3) {
-                    iv.setImageResource(R.drawable.ic_avatar_placeholder)
-                    iv.visibility = View.VISIBLE
-                } else {
-                    iv.visibility = View.GONE
+            if (task.type == "group"){
+                avatars.forEachIndexed { i, iv ->
+                    if (i < count && i <  3){
+                        iv.setImageResource(R.drawable.ic_avatar_placeholder)
+                        iv.visibility = View.VISIBLE
+                    } else iv.visibility = View.GONE
                 }
-            }
-            // Show "+N" if >3
-            if (count > 3) {
-                tvMore.visibility = View.VISIBLE
-                tvMore.text = "+${count - 3}"
-            } else {
+                if (count > 3) {
+                    tvMore.visibility = View.VISIBLE
+                    tvMore.text = "+${count - 3}"
+                } else {
+                    tvMore.visibility = View.GONE
+                }
+            }else   {
+                avatars.forEach { it.visibility = View.GONE }
                 tvMore.visibility = View.GONE
             }
 
@@ -66,7 +70,20 @@ class TaskAdapter(
                     setOnMenuItemClickListener { item ->
                         when (item.itemId) {
                             R.id.action_edit   -> { listener.onEdit(task, pos); true }
-                            R.id.action_delete -> { listener.onDelete(task, pos); true }
+                            R.id.action_delete -> {
+                                FirebaseFirestore.getInstance()
+                                    .collection("tasks")
+                                    .document(task.id)
+                                    .delete()
+                                view.context.contentResolver.delete(
+                                    CalendarContract.Events.CONTENT_URI,
+                                    "${CalendarContract.Events.TITLE}=? AND ${CalendarContract.Events.DTSTART}=?",
+                                    arrayOf(task.title, task.deadlineMillis.toString())
+                                    )
+                                val updated = taskList.toMutableList().apply { removeAt(pos)}
+                                updateData(updated)
+                                true
+                            }
                             else               -> false
                         }
                     }

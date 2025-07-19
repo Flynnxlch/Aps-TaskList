@@ -11,6 +11,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.project.aps_tasklist.R
 import com.project.aps_tasklist.adapter.TaskListAdapter
 import com.project.aps_tasklist.model.TaskListItem
@@ -24,6 +26,9 @@ class TaskListActivity : AppCompatActivity(),
     private val tasksData = mutableListOf<TaskModel>()
     private lateinit var listAdapter: TaskListAdapter
     private lateinit var toolbar: Toolbar
+
+    private val firestore = FirebaseFirestore.getInstance()
+    private val auth      = FirebaseAuth.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,19 +53,27 @@ class TaskListActivity : AppCompatActivity(),
         listAdapter = TaskListAdapter(emptyList(), this)
         rvTaskList.adapter = listAdapter
 
-        loadDummyTasks()
-        buildAndShowList()
+        loadAllTasks()
     }
 
-    private fun loadDummyTasks() {
-        val now = System.currentTimeMillis()
-        tasksData.apply {
-            add(TaskModel("Buy groceries", "Milk, eggs, bread", 2, 40, now))
-            add(TaskModel("Write report", "Annual financials", 1, 100, now - DAY_MS))
-            add(TaskModel("Team meeting", "Discuss roadmap", 3, 60, now - 2*DAY_MS))
-            add(TaskModel("Read book", "Chapter 5–6", 1, 100, now - 5*DAY_MS))
-        }
+    private fun loadAllTasks() {
+        val uid = auth.currentUser?.uid ?: return
+        firestore.collection("tasks")
+            .whereEqualTo("createdBy", uid)
+            .get()
+            .addOnSuccessListener { snaps ->
+                tasksData.clear()
+                snaps.documents.mapNotNullTo(tasksData) { doc ->
+                    doc.toObject(TaskModel::class.java)?.copy(id = doc.id)
+                }
+                // setelah data siap, build & tampilkan list sectioned
+                buildAndShowList()
+            }
+            .addOnFailureListener { ex ->
+                Toast.makeText(this, ex.message, Toast.LENGTH_LONG).show()
+            }
     }
+
 
     private fun buildAndShowList() {
         val dateFmt  = SimpleDateFormat("d MMMM yyyy", Locale.getDefault())
@@ -94,17 +107,27 @@ class TaskListActivity : AppCompatActivity(),
     }
 
     override fun onTaskClicked(task: TaskModel, position: Int) {
-        // update last interaction & resort
-        task.lastInteractedMillis = System.currentTimeMillis()
-        buildAndShowList()
+        val newTs = System.currentTimeMillis()
 
-        // buka detail
-        startActivity(Intent(this, DetailActivity::class.java).apply {
-            putExtra("task", task)
-            putExtra("pos", position)
-            putExtra("isGroupTask", task.usercount > 1)
-        })
+        // 1) Update lastInteracted di Firestore
+        FirebaseFirestore.getInstance()
+            .collection("tasks")
+            .document(task.id)
+            .update("lastInteracted", newTs)
+            .addOnSuccessListener {
+                loadAllTasks()
+                // 3) Buka Detail
+                startActivity(Intent(this, DetailActivity::class.java).apply {
+                    putExtra("task", task)
+                    putExtra("pos", position)
+                    putExtra("isGroupTask", task.usercount > 1)
+                })
+            }
+            .addOnFailureListener { ex ->
+                Toast.makeText(this, "Gagal update interaction", Toast.LENGTH_SHORT).show()
+            }
     }
+
 
     override fun onEdit(task: TaskModel, position: Int) {
         startActivity(Intent(this, AddTaskActivity::class.java).apply {
