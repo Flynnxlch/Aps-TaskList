@@ -84,17 +84,25 @@ class SignupActivity : AppCompatActivity() {
 
             auth.createUserWithEmailAndPassword(email, pass)
                 .addOnSuccessListener { res ->
-                val uid = res.user!!.uid
-                val userMap = mapOf("username" to username, "email" to email)
-                rtDb.child("users").child(uid).setValue(userMap)
-                rtDb.child("usernames").child(username).setValue(uid)
-                // Langsung masuk MainActivity
-                startActivity(Intent(this, MainActivity::class.java))
-                finish()
-            }
+                    val uid = res.user!!.uid
+                    val userMap = mapOf("username" to username, "email" to email)
+
+                    rtDb.child("users").child(uid).setValue(userMap)
+                    rtDb.child("usernames").child(username).setValue(uid)
+
+                    FirebaseFirestore.getInstance()
+                        .collection("users")
+                        .document(uid)
+                        .set(userMap)
+
+                    // langsung masuk MainActivity
+                    startActivity(Intent(this, MainActivity::class.java))
+                    finish()
+                }
                 .addOnFailureListener { ex ->
                     Toast.makeText(this, ex.message, Toast.LENGTH_LONG).show()
                 }
+
         }
 
 

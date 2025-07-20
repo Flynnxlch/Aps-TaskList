@@ -19,6 +19,7 @@ import com.google.firebase.Timestamp
 import android.content.ContentValues
 import android.provider.CalendarContract
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 
 class AddTaskActivity : AppCompatActivity() {
 
@@ -61,6 +62,10 @@ class AddTaskActivity : AppCompatActivity() {
         etDeadlineTime   = findViewById(R.id.etDeadlineTime)
         btnSaveTask      = findViewById(R.id.btnSaveTask)
 
+        val btnJoinGroup = findViewById<MaterialButton>(R.id.btnJoinGroupTask)
+
+        val etJoinCode = findViewById<TextInputEditText>(R.id.etJoinCode)
+
         // Toggle Task Type: Individual vs Group
         rgTaskType.setOnCheckedChangeListener { _, checkedId ->
             val isGroup = (checkedId == R.id.rbGroup)
@@ -97,6 +102,47 @@ class AddTaskActivity : AppCompatActivity() {
 
         // Save Task button
         btnSaveTask.setOnClickListener { saveAndReturn() }
+
+        btnJoinGroup.setOnClickListener {
+            val groupIdRaw = etJoinCode.text?.toString() ?: ""
+            val groupId = groupIdRaw.trim().replace("\\s+".toRegex(), "").uppercase(Locale.getDefault())
+
+            if (groupId.length != 8 || !groupId.matches(Regex("^[A-Z0-9]{8}$"))) {
+                Toast.makeText(this, "ID Grup harus tepat 8 karakter A-Z atau 0-9", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val uid = auth.currentUser?.uid ?: return@setOnClickListener
+
+            firestore.collection("tasks")
+                .whereEqualTo("groupId", groupId)
+                .get()
+                .addOnSuccessListener { query ->
+                    if (query.isEmpty) {
+                        Toast.makeText(this, "Group ID tidak ditemukan", Toast.LENGTH_SHORT).show()
+                    } else {
+                        for (doc in query.documents) {
+                            firestore.collection("tasks")
+                                .document(doc.id)
+                                .update("members", FieldValue.arrayUnion(uid))
+                        }
+
+                        firestore.collection("groups").document(groupId)
+                            .update("members", FieldValue.arrayUnion(uid))
+                            .addOnSuccessListener {
+                                Toast.makeText(this, "Berhasil join ke grup", Toast.LENGTH_SHORT).show()
+                                setResult(RESULT_OK)
+                                finish()
+                            }
+                            .addOnFailureListener {
+                                Toast.makeText(this, "Gagal menambahkan ke grup", Toast.LENGTH_SHORT).show()
+                            }
+                    }
+                }
+                .addOnFailureListener {
+                    Toast.makeText(this, "Gagal join group", Toast.LENGTH_SHORT).show()
+                }
+        }
     }
 
     private fun savePartialDeadline() {
@@ -108,7 +154,7 @@ class AddTaskActivity : AppCompatActivity() {
         val title    = findViewById<TextInputEditText>(R.id.etTaskTitle).text.toString().trim()
         val desc     = findViewById<TextInputEditText>(R.id.etTaskDesc).text.toString().trim()
         val isGroup  = rgTaskType.checkedRadioButtonId == R.id.rbGroup
-        val groupId  = if (isGroup) etTaskID.text.toString() else null
+        val groupId  = if (isGroup) etTaskID.text.toString().trim().uppercase() else null
         val uid      = auth.currentUser?.uid ?: return
         val nowTs    = Timestamp.now()
         val nowMs    = nowTs.toDate().time
@@ -131,11 +177,11 @@ class AddTaskActivity : AppCompatActivity() {
             "groupId"         to groupId,
             "deadlineMillis"  to selectedDeadlineMillis,
             "createdBy"       to uid,
-            "createdAt"       to nowTs,
-            "lastInteracted"  to nowTs
+            "createdAt"          to nowMs,
+            "lastInteractedMillis" to nowMs,
+            "members"         to listOf(uid)
         )
 
-        // 4. Simpan parent ke Firestore (otomatis bikin koleksi & doc baru)
         firestore.collection("tasks")
             .add(parentData)
             .addOnSuccessListener { taskDoc ->
@@ -183,21 +229,39 @@ class AddTaskActivity : AppCompatActivity() {
                         .add(subData)
                 }
 
-                // 6. Jika group: tambahkan task ke group dan anggota
                 if (isGroup && groupId != null) {
-                    firestore.collection("groups")
-                        .document(groupId)
-                        .update("members", com.google.firebase.firestore.FieldValue.arrayUnion(uid))
-                        .addOnSuccessListener {
-                            firestore.collection("groups")
-                                .document(groupId)
-                                .collection("tasks")
-                                .document(taskId)
-                                .set(parentData)
-                        }
-                }
+                    val groupDocRef = firestore.collection("groups").document(groupId)
 
-                // 7. Simpan ke kalender sistem
+                    groupDocRef.get().addOnSuccessListener { doc ->
+                        if (doc.exists()) {
+                            // JOIN grup yang sudah ada
+                            groupDocRef.update("members", com.google.firebase.firestore.FieldValue.arrayUnion(uid))
+                                .addOnSuccessListener {
+                                    firestore.collection("groups")
+                                        .document(groupId)
+                                        .collection("tasks")
+                                        .document(taskId)
+                                        .set(parentData)
+                                }
+                        } else {
+                            // BUAT grup baru
+                            val groupData = mapOf(
+                                "createdBy" to uid,
+                                "createdAt" to nowMs,
+                                "members"   to listOf(uid)
+                            )
+                            groupDocRef.set(groupData)
+                                .addOnSuccessListener {
+                                    firestore.collection("groups")
+                                        .document(groupId)
+                                        .collection("tasks")
+                                        .document(taskId)
+                                        .set(parentData)
+                                }
+                        }
+                    }
+                }
+                // Simpan ke kalender sistem
                 startActivity(Intent(Intent.ACTION_INSERT).apply {
                     data = CalendarContract.Events.CONTENT_URI
                     putExtra(CalendarContract.Events.TITLE, title)
@@ -283,4 +347,5 @@ class AddTaskActivity : AppCompatActivity() {
             true
         ).show()
     }
+
 }

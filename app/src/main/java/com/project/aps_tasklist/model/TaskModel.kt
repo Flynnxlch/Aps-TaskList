@@ -1,6 +1,7 @@
 package com.project.aps_tasklist.model
 
 import android.os.Parcelable
+import com.google.firebase.Timestamp
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
@@ -11,7 +12,7 @@ data class TaskModel(
     val type: String = "individual",         // "individual" atau "group"
     val groupId: String? = null,             // kode grup kalau type="group"
     val createdBy: String = "",              // UID pembuat
-    val createdAt: Long = 0L,                // millis
+    val createdAt: Long = System.currentTimeMillis(),                // millis
     val lastInteractedMillis: Long = createdAt,
     val deadlineMillis: Long = createdAt,
     val progress: Int = 0,                   // 0–100

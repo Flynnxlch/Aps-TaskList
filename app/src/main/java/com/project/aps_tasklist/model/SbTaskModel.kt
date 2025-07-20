@@ -5,8 +5,15 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class SbTaskModel(
-    val name: String,
-    val deadlineMillis: Long,
-    var completedBy: String?,   // ← var agar bisa diubah
-    var comment: String?        // ← var agar bisa diubah
+    val id: String = "",
+    val name: String = "",
+    val deadlineMillis: Long = 0L,
+    var completedBy: String? = null,
+    var comment: String? = null,
+    val hasReminder: Boolean = false,
+    val reminderOffsetMs: Long = 0L,
+    val assignToMe: Boolean = false,
+    val isDone: Boolean = false
 ) : Parcelable
+
+

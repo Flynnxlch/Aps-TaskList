@@ -42,6 +42,9 @@ class MainActivity : AppCompatActivity(),
     private val firestore = FirebaseFirestore.getInstance()
     private val auth      = FirebaseAuth.getInstance()
 
+    private val REQUEST_CODE_ADD_TASK = 100
+    private val REQUEST_CODE_DETAIL = 101
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -58,16 +61,20 @@ class MainActivity : AppCompatActivity(),
         setupQuickActions()
         setupDismissibleBanner()
 
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        val uid = auth.currentUser?.uid
         if (uid != null) {
-            FirebaseDatabase.getInstance()
-                .getReference("users")
-                .child(uid)
-                .child("username")
-                .get()
+            val rtRef = FirebaseDatabase.getInstance().getReference("users").child(uid).child("username")
+            rtRef.get()
                 .addOnSuccessListener { snap ->
-                    val name = snap.getValue(String::class.java) ?: "User"
-                    tvUsername.text = name
+                    val name = snap.getValue(String::class.java)
+                    if (!name.isNullOrBlank()) {
+                        tvUsername.text = name
+                    } else {
+                        loadUsernameFromFirestore(uid)
+                    }
+                }
+                .addOnFailureListener {
+                    loadUsernameFromFirestore(uid)
                 }
         }
 
@@ -101,30 +108,68 @@ class MainActivity : AppCompatActivity(),
         tvTaskCount   = findViewById(R.id.tvTaskCount)
     }
 
+    private fun loadUsernameFromFirestore(uid: String) {
+        firestore.collection("users")
+            .document(uid)
+            .get()
+            .addOnSuccessListener { doc ->
+                val name = doc.getString("username") ?: "User"
+                tvUsername.text = name
+            }
+            .addOnFailureListener {
+                tvUsername.text = "User"
+            }
+    }
+
     private fun loadTasksFromFirestore() {
         val uid = auth.currentUser?.uid ?: return
-        firestore.collection("tasks")
-            .whereEqualTo("createdBy", uid)
+        val tasksRef = firestore.collection("tasks")
+
+        // Ambil task di mana user adalah pembuat atau anggota (group)
+        tasksRef.whereArrayContains("members", uid)
             .get()
-            .addOnSuccessListener { snaps ->
-                // 1) rebuild list
-                tasksData.clear()
-                for (doc in snaps.documents) {
-                    val task = doc.toObject(TaskModel::class.java)
-                        ?.copy(id = doc.id)            // pastikan TaskModel punya field "id"
-                    if (task != null) tasksData.add(task)
-                }
-                // 2) sorting & tampilkan top 4
-                showTopTasks()
-                // 3) update banner count
-                val incomplete = tasksData.count { it.progress < 100 }
-                tvTaskCount.text = if (incomplete > 0)
-                    "You have $incomplete unfinished tasks today."
-                else
-                    "Lagi tidak ada tugas"
+            .addOnSuccessListener { snap1 ->
+                tasksRef.whereEqualTo("createdBy", uid)
+                    .get()
+                    .addOnSuccessListener { snap2 ->
+                        val docs = (snap1.documents + snap2.documents).distinctBy { it.id }
+
+                        tasksData.clear()
+                        for (doc in docs) {
+                            val map = doc.data ?: continue
+                            try {
+                                val task = TaskModel(
+                                    id = doc.id,
+                                    title = map["title"] as? String ?: "",
+                                    description = map["description"] as? String ?: "",
+                                    type = map["type"] as? String ?: "individual",
+                                    groupId = map["groupId"] as? String,
+                                    createdBy = map["createdBy"] as? String ?: "",
+                                    createdAt = (map["createdAt"] as? Number)?.toLong() ?: 0L,
+                                    lastInteractedMillis = (map["lastInteractedMillis"] as? Number)?.toLong()
+                                        ?: (map["createdAt"] as? Number)?.toLong() ?: 0L,
+                                    deadlineMillis = (map["deadlineMillis"] as? Number)?.toLong()
+                                        ?: (map["createdAt"] as? Number)?.toLong() ?: 0L,
+                                    progress = (map["progress"] as? Number)?.toInt() ?: 0,
+                                    usercount = (map["usercount"] as? Number)?.toInt() ?: 1
+                                )
+                                tasksData.add(task)
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+
+                        showTopTasks()
+
+                        val incomplete = tasksData.count { it.progress < 100 }
+                        tvTaskCount.text = if (incomplete > 0)
+                            "You have $incomplete unfinished tasks today."
+                        else
+                            "Lagi tidak ada tugas"
+                    }
             }
-            .addOnFailureListener { ex ->
-                Toast.makeText(this, ex.message, Toast.LENGTH_LONG).show()
+            .addOnFailureListener {
+                Toast.makeText(this, it.message ?: "Gagal memuat tugas", Toast.LENGTH_SHORT).show()
             }
     }
 
@@ -148,7 +193,7 @@ class MainActivity : AppCompatActivity(),
 
     private fun setupQuickActions() {
         btnAddTask.setOnClickListener {
-            startActivity(Intent(this, AddTaskActivity::class.java))
+            startActivityForResult(Intent(this, AddTaskActivity::class.java), REQUEST_CODE_ADD_TASK)
         }
         btnSchedule.setOnClickListener {
             startActivity(Intent(this, ScheduleActivity::class.java))
@@ -214,28 +259,32 @@ class MainActivity : AppCompatActivity(),
     override fun onTaskClicked(task: TaskModel, position: Int) {
         val newTs = System.currentTimeMillis()
 
-        // 1) Update lastInteracted di Firestore
+        // Update lastInteracted di Firestore
         FirebaseFirestore.getInstance()
             .collection("tasks")
             .document(task.id)
             .update("lastInteracted", newTs)
             .addOnSuccessListener {
-                // 2) Setelah sukses, refetch / resort
-                //    MainActivity: panggil loadTasksFromFirestore()
-                //    TaskListActivity: panggil loadAllTasks()
-                loadTasksFromFirestore()    // di MainActivity
-                // atau loadAllTasks() di TaskListActivity
 
-                // 3) Buka Detail
-                startActivity(Intent(this, DetailActivity::class.java).apply {
+                loadTasksFromFirestore()
+
+                startActivityForResult(Intent(this, DetailActivity::class.java).apply {
                     putExtra("task", task)
                     putExtra("pos", position)
                     putExtra("isGroupTask", task.usercount > 1)
-                })
+                }, REQUEST_CODE_DETAIL)
             }
             .addOnFailureListener { ex ->
                 Toast.makeText(this, "Gagal update interaction", Toast.LENGTH_SHORT).show()
             }
     }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode == RESULT_OK && (requestCode == REQUEST_CODE_ADD_TASK || requestCode == REQUEST_CODE_DETAIL)) {
+            loadTasksFromFirestore()
+        }
+    }
+
 
 }

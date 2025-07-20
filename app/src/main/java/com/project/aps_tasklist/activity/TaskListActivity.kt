@@ -30,6 +30,9 @@ class TaskListActivity : AppCompatActivity(),
     private val firestore = FirebaseFirestore.getInstance()
     private val auth      = FirebaseAuth.getInstance()
 
+    private val REQUEST_CODE_ADD_TASK = 100
+    private val REQUEST_CODE_DETAIL = 101
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -58,16 +61,36 @@ class TaskListActivity : AppCompatActivity(),
 
     private fun loadAllTasks() {
         val uid = auth.currentUser?.uid ?: return
+        val tempTasks = mutableListOf<TaskModel>()
+
+        val onComplete: () -> Unit = {
+            // setelah data siap, build & tampilkan list sectioned
+            tasksData.clear()
+            tasksData.addAll(tempTasks.distinctBy { it.id }) // Hindari duplikasi
+            buildAndShowList()
+        }
+
         firestore.collection("tasks")
             .whereEqualTo("createdBy", uid)
             .get()
             .addOnSuccessListener { snaps ->
-                tasksData.clear()
-                snaps.documents.mapNotNullTo(tasksData) { doc ->
-                    doc.toObject(TaskModel::class.java)?.copy(id = doc.id)
+                snaps.documents.mapNotNullTo(tempTasks) {
+                    it.toObject(TaskModel::class.java)?.copy(id = it.id)
                 }
-                // setelah data siap, build & tampilkan list sectioned
-                buildAndShowList()
+
+                firestore.collection("tasks")
+                    .whereArrayContains("members", uid)
+                    .get()
+                    .addOnSuccessListener { snaps2 ->
+                        snaps2.documents.mapNotNullTo(tempTasks) {
+                            it.toObject(TaskModel::class.java)?.copy(id = it.id)
+                        }
+                        onComplete()
+                    }
+                    .addOnFailureListener { ex ->
+                        Toast.makeText(this, ex.message, Toast.LENGTH_LONG).show()
+                    }
+
             }
             .addOnFailureListener { ex ->
                 Toast.makeText(this, ex.message, Toast.LENGTH_LONG).show()
@@ -109,19 +132,19 @@ class TaskListActivity : AppCompatActivity(),
     override fun onTaskClicked(task: TaskModel, position: Int) {
         val newTs = System.currentTimeMillis()
 
-        // 1) Update lastInteracted di Firestore
+        // Update lastInteracted di Firestore
         FirebaseFirestore.getInstance()
             .collection("tasks")
             .document(task.id)
             .update("lastInteracted", newTs)
             .addOnSuccessListener {
+
                 loadAllTasks()
-                // 3) Buka Detail
-                startActivity(Intent(this, DetailActivity::class.java).apply {
+                startActivityForResult(Intent(this, DetailActivity::class.java).apply {
                     putExtra("task", task)
                     putExtra("pos", position)
                     putExtra("isGroupTask", task.usercount > 1)
-                })
+                }, REQUEST_CODE_DETAIL)
             }
             .addOnFailureListener { ex ->
                 Toast.makeText(this, "Gagal update interaction", Toast.LENGTH_SHORT).show()
@@ -130,12 +153,20 @@ class TaskListActivity : AppCompatActivity(),
 
 
     override fun onEdit(task: TaskModel, position: Int) {
-        startActivity(Intent(this, AddTaskActivity::class.java).apply {
+        startActivityForResult(Intent(this, AddTaskActivity::class.java).apply {
             putExtra("mode", "edit")
             putExtra("task", task)
             putExtra("pos", position)
-        })
+        }, REQUEST_CODE_ADD_TASK)
     }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode == RESULT_OK && (requestCode == REQUEST_CODE_ADD_TASK || requestCode == REQUEST_CODE_DETAIL)) {
+            loadAllTasks()
+        }
+    }
+
 
     override fun onDelete(task: TaskModel, position: Int) {
         AlertDialog.Builder(this)

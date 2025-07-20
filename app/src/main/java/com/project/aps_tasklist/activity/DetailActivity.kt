@@ -6,6 +6,7 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -13,6 +14,11 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.button.MaterialButton
+import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.project.aps_tasklist.R
 import com.project.aps_tasklist.adapter.SubTaskAdapter
 import com.project.aps_tasklist.model.SbTaskModel
@@ -37,9 +43,13 @@ class DetailActivity : AppCompatActivity(),
     private lateinit var tvSubtaskHeader: TextView
     private lateinit var rvDetailSubtasks: RecyclerView
 
+    private val firestore = FirebaseFirestore.getInstance()
+    private val auth      = FirebaseAuth.getInstance()
+
+    private lateinit var taskId: String
     private var isGroupTask = false
     private lateinit var taskModel: TaskModel
-    private lateinit var subtasks: MutableList<SbTaskModel>
+    private val subtasks = mutableListOf<SbTaskModel>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +66,41 @@ class DetailActivity : AppCompatActivity(),
         setupToolbar()
         loadIntentData()
         populateTaskInfo()
-        setupSubtasksSection()
+
+        val btnMarkComplete = findViewById<MaterialButton>(R.id.btnMarkComplete)
+        btnMarkComplete.setOnClickListener {
+            val total = subtasks.size
+            val done = subtasks.count { it.completedBy != null }
+            val progress = (done * 100 / total).coerceAtMost(100)
+
+            firestore.collection("tasks")
+                .document(taskId)
+                .update("progress", progress)
+                .addOnSuccessListener {
+                    Toast.makeText(this, "Progress updated", Toast.LENGTH_SHORT).show()
+                    finish() // kembali ke MainActivity
+                }
+                .addOnFailureListener {
+                    Toast.makeText(this, "Gagal update progress", Toast.LENGTH_SHORT).show()
+                }
+        }
+
+
+        firestore.collection("tasks")
+            .document(taskId)
+            .collection("subtasks")
+            .get()
+            .addOnSuccessListener { snaps ->
+                subtasks.clear()
+                for (doc in snaps) {
+                    val sub = doc.toObject(SbTaskModel::class.java)
+                    subtasks.add(sub.copy(
+                        id = doc.id
+                    ))
+                }
+                setupSubtasksSection()
+                updateSubtasksProgress()
+            }
     }
 
     private fun bindViews() {
@@ -82,31 +126,34 @@ class DetailActivity : AppCompatActivity(),
 
     private fun loadIntentData() {
         taskModel   = intent.getParcelableExtra("task")!!
+        taskId      = taskModel.id
         isGroupTask = intent.getBooleanExtra("isGroupTask", false)
-        subtasks = intent
-            .getParcelableArrayListExtra<SbTaskModel>("subtasks")
-            ?.toMutableList()
-            ?: generateDummySubtasks().toMutableList()
     }
 
     private fun populateTaskInfo() {
+        // 2) Tampilkan parent fields
         tvDetailTitle.text = taskModel.title
-        tvDetailDesc.text  = taskModel.description
+        tvDetailDesc.text = taskModel.description
         val sdf = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault())
         tvDetailDeadline.text = "Due: ${sdf.format(Date(taskModel.deadlineMillis))}"
 
-        val members = intent.getStringArrayListExtra("members") ?: arrayListOf()
-        if (isGroupTask && members.isNotEmpty()) {
-            tvMembersLabel.visibility  = View.VISIBLE
-            memberContainer.visibility = View.VISIBLE
-            memberContainer.removeAllViews()
-            for (m in members) {
-                val tv = TextView(this).apply {
-                    textSize = 14f
-                    text = "• $m"
+        // 3) Fetch anggota grup (jika ada)
+        if (isGroupTask) {
+            firestore.collection("groups")
+                .document(taskModel.groupId!!)
+                .get()
+                .addOnSuccessListener { grp ->
+                    val members = grp.get("members") as? List<String> ?: emptyList()
+                    tvMembersLabel.visibility = View.VISIBLE
+                    memberContainer.visibility = View.VISIBLE
+                    memberContainer.removeAllViews()
+                    for (m in members) {
+                        val tv = TextView(this).apply {
+                            textSize = 14f; text = "• $m"
+                        }
+                        memberContainer.addView(tv)
+                    }
                 }
-                memberContainer.addView(tv)
-            }
         }
     }
 
@@ -117,11 +164,8 @@ class DetailActivity : AppCompatActivity(),
             updateSubtasksProgress()
         }
 
-        rvDetailSubtasks.layoutManager =
-            LinearLayoutManager(this)
-        // Pasang listener 'this'
-        rvDetailSubtasks.adapter =
-            SubTaskAdapter(subtasks, isGroupTask, this)
+        rvDetailSubtasks.layoutManager   = LinearLayoutManager(this)
+        rvDetailSubtasks.adapter         = SubTaskAdapter(subtasks, isGroupTask, this)
     }
 
     private fun updateSubtasksProgress() {
@@ -132,29 +176,52 @@ class DetailActivity : AppCompatActivity(),
     }
 
     /** Dari interface SubtaskActionListener */
-    override fun onSubtaskToggled(position: Int, isDone: Boolean, completedBy: String?) {
-        // Update model
+    override fun onSubtaskToggled(
+        subId: String,
+        position: Int,
+        isDone: Boolean,
+        completedBy: String?,
+        comment: String?
+    ) {
+        val subDocRef = firestore.collection("tasks")
+            .document(taskId)
+            .collection("subtasks")
+            .document(subId)
+
+        // 1) Update subtask
+        subDocRef.set(
+            mapOf(
+                "isDone"       to isDone,
+                "completedBy"  to completedBy,
+                "comment"      to comment
+            ),
+            SetOptions.merge()
+        )
+
+        // 2) Update local model & UI
         subtasks[position].completedBy = completedBy
         updateSubtasksProgress()
 
-        // Simpan ke TaskModel
-        taskModel.progress = pbOverallProgress.progress
-        taskModel.lastInteractedMillis = System.currentTimeMillis()
-
-        // Kembalikan data ke parent
-        val result = Intent().apply {
-            putExtra("updatedTask", taskModel)
-            putExtra("updatedPos", intent.getIntExtra("pos", -1))
-        }
-        setResult(RESULT_OK, result)
+        // 3) Update parent progress & lastInteracted
+        val newProgress = pbOverallProgress.progress
+        val newTs       = Timestamp.now()
+        firestore.collection("tasks")
+            .document(taskId)
+            .update(
+                "progress", newProgress,
+                "lastInteracted", newTs
+            )
+            .addOnSuccessListener {
+                // 4) Kembalikan hasil ke parent jika perlu
+                val intent = Intent().apply {
+                    putExtra("updatedTask", taskModel.copy(
+                        progress               = newProgress,
+                        lastInteractedMillis   = newTs.toDate().time
+                    ))
+                    putExtra("updatedPos", intent.getIntExtra("pos", -1))
+                }
+                setResult(RESULT_OK, intent)
+            }
     }
 
-    private fun generateDummySubtasks(): List<SbTaskModel> {
-        val now = System.currentTimeMillis()
-        return listOf(
-            SbTaskModel("Design UI",     now + 2_000_000_000, completedBy = "alice", comment = "Looks good"),
-            SbTaskModel("API Backend",   now + 5_000_000_000, completedBy = null,    comment = null),
-            SbTaskModel("Testing",       now - 1_000_000_000, completedBy = "bob",   comment = "Fixed bugs")
-        )
-    }
 }

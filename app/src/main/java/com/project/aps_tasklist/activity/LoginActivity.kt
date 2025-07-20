@@ -16,6 +16,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.firestore.FirebaseFirestore
 import com.project.aps_tasklist.R
 
 class LoginActivity : AppCompatActivity() {
@@ -125,14 +126,37 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
+
     private fun signInWithEmail(email: String, pass: String) {
         auth.signInWithEmailAndPassword(email, pass)
-            .addOnSuccessListener {
-                startActivity(Intent(this, MainActivity::class.java))
-                finish()
+            .addOnSuccessListener { res ->
+                val uid = res.user!!.uid
+
+                // Pastikan username di-sync ke kedua DB
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .get()
+                    .addOnSuccessListener { doc ->
+                        val userName = doc.getString("username") ?: ""
+                        if (userName.isNotBlank()) {
+                            // tulis ulang juga ke RTDB
+                            FirebaseDatabase.getInstance().getReference("users")
+                                .child(uid).child("username").setValue(userName)
+                        }
+                        // lanjut buka MainActivity
+                        startActivity(Intent(this, MainActivity::class.java))
+                        finish()
+                    }
+                    .addOnFailureListener {
+                        // meski gagal, kita tetap buka MainActivity
+                        startActivity(Intent(this, MainActivity::class.java))
+                        finish()
+                    }
             }
             .addOnFailureListener { ex ->
                 passwordEditText.error = ex.message
             }
     }
+
 }

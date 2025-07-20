@@ -2,6 +2,7 @@
   "project_info": {
     "project_number": "511555448049",
     "project_id": "aps-tasklist",
+    "firebase_url": "https://aps-tasklist-default-rtdb.asia-southeast1.firebasedatabase.app",
     "storage_bucket": "aps-tasklist.firebasestorage.app"
   },
   "client": [

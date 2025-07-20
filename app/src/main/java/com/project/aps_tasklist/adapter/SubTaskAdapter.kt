@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.CheckBox
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.textfield.TextInputEditText
 import com.project.aps_tasklist.model.SbTaskModel
 import com.project.aps_tasklist.R
 import java.util.*
@@ -18,14 +19,15 @@ class SubTaskAdapter(
 ) : RecyclerView.Adapter<SubTaskAdapter.VH>() {
 
     interface SubtaskActionListener {
-        /**
-         * Dipanggil saat subtask dicentang/di-uncentang.
-         * @param position indeks subtask
-         * @param isDone apakah sudah dicentang
-         * @param completedBy nama yang menyelesaikan (atau null)
-         */
-        fun onSubtaskToggled(position: Int, isDone: Boolean, completedBy: String?)
+        fun onSubtaskToggled(
+            subId: String,
+            position: Int,
+            isDone: Boolean,
+            completedBy: String?,
+            comment: String?
+        )
     }
+
 
     inner class VH(view: View) : RecyclerView.ViewHolder(view) {
         val cbDone: CheckBox       = view.findViewById(R.id.cbSubtaskDone)
@@ -34,7 +36,7 @@ class SubTaskAdapter(
         val tvTimeLeft: TextView   = view.findViewById(R.id.tvSubtaskTimeLeft)
         val tvFinishedBy: TextView = view.findViewById(R.id.tvFinishedBy)
         val inputComment: View     = view.findViewById(R.id.inputLayoutComment)
-        val etComment: TextView    = view.findViewById(R.id.etSubtaskComment)
+        val etComment: TextInputEditText    = view.findViewById(R.id.etSubtaskComment)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -66,7 +68,20 @@ class SubTaskAdapter(
         holder.cbDone.setOnCheckedChangeListener(null)
         holder.cbDone.isChecked = (sub.completedBy != null)
         holder.inputComment.visibility = if (sub.completedBy != null) View.VISIBLE else View.GONE
-        holder.etComment.text = sub.comment ?: ""
+        holder.etComment.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus && sub.completedBy != null) {
+                val newComment = holder.etComment.text?.toString()?.takeIf { it.isNotBlank() }
+                if (newComment != sub.comment) {
+                    listener.onSubtaskToggled(
+                        sub.id,
+                        pos,
+                        true,
+                        sub.completedBy,
+                        newComment
+                    )
+                }
+            }
+        }
 
         // Finished by untuk group tasks
         if (isGroupTask && sub.completedBy != null) {
@@ -82,7 +97,10 @@ class SubTaskAdapter(
             holder.inputComment.visibility = if (checked) View.VISIBLE else View.GONE
             // siapa yang menyelesaikan
             val completer = if (checked) "me" else null
-            listener.onSubtaskToggled(pos, checked, completer)
+            val commentText = holder.etComment.text.toString().takeIf { it.isNotBlank() }
+            listener.onSubtaskToggled(
+                items[pos].id, pos, checked, completer, commentText
+            )
         }
     }
 
